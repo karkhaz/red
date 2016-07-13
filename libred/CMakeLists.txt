@@ -19,18 +19,18 @@ find_package(Threads REQUIRED)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_library(ear SHARED ear.c)
-target_link_libraries(ear ${CMAKE_DL_LIBS})
+add_library(red SHARED red.c)
+target_link_libraries(red ${CMAKE_DL_LIBS})
 if(THREADS_HAVE_PTHREAD_ARG)
-    set_property(TARGET ear PROPERTY COMPILE_OPTIONS "-pthread")
-    set_property(TARGET ear PROPERTY INTERFACE_COMPILE_OPTIONS "-pthread")
+    set_property(TARGET red PROPERTY COMPILE_OPTIONS "-pthread")
+    set_property(TARGET red PROPERTY INTERFACE_COMPILE_OPTIONS "-pthread")
 endif()
 if(CMAKE_THREAD_LIBS_INIT)
-    target_link_libraries(ear "${CMAKE_THREAD_LIBS_INIT}")
+    target_link_libraries(red "${CMAKE_THREAD_LIBS_INIT}")
 endif()
 
-set_target_properties(ear PROPERTIES INSTALL_RPATH "@loader_path/${CMAKE_INSTALL_LIBDIR}")
+set_target_properties(red PROPERTIES INSTALL_RPATH "@loader_path/${CMAKE_INSTALL_LIBDIR}")
 
 include(GNUInstallDirs)
-install(TARGETS ear
+install(TARGETS red
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

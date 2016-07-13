@@ -55,7 +55,7 @@ static char **environ;
 extern char **environ;
 #endif
 
-#define ENV_OUTPUT "BEAR_OUTPUT"
+#define ENV_OUTPUT "RED_OUTPUT"
 #ifdef APPLE
 # define ENV_FLAT    "DYLD_FORCE_FLAT_NAMESPACE"
 # define ENV_PRELOAD "DYLD_INSERT_LIBRARIES"
@@ -71,25 +71,25 @@ extern char **environ;
         TYPE_ to;                                                              \
     } cast;                                                                    \
     if (0 == (cast.from = dlsym(RTLD_NEXT, SYMBOL_))) {                        \
-        perror("bear: dlsym");                                                 \
+        perror("red: dlsym");                                                 \
         exit(EXIT_FAILURE);                                                    \
     }                                                                          \
     TYPE_ const VAR_ = cast.to;
 
 
-typedef char const * bear_env_t[ENV_SIZE];
+typedef char const * red_env_t[ENV_SIZE];
 
-static int bear_capture_env_t(bear_env_t *env);
-static void bear_release_env_t(bear_env_t *env);
-static char const **bear_update_environment(char *const envp[], bear_env_t *env);
-static char const **bear_update_environ(char const **in, char const *key, char const *value);
-static void bear_report_call(char const *fun, char const *const argv[],
+static int red_capture_env_t(red_env_t *env);
+static void red_release_env_t(red_env_t *env);
+static char const **red_update_environment(char *const envp[], red_env_t *env);
+static char const **red_update_environ(char const **in, char const *key, char const *value);
+static void red_report_call(char const *fun, char const *const argv[],
     long long timestamp);
-static char const **bear_strings_build(char const *arg, va_list *ap);
-static char const **bear_strings_copy(char const **const in);
-static char const **bear_strings_append(char const **in, char const *e);
-static size_t bear_strings_length(char const *const *in);
-static void bear_strings_release(char const **);
+static char const **red_strings_build(char const *arg, va_list *ap);
+static char const **red_strings_copy(char const **const in);
+static char const **red_strings_append(char const **in, char const *e);
+static size_t red_strings_length(char const *const *in);
+static void red_strings_release(char const **);
 
 static int const GS = 0x1d;
 static int const RS = 0x1e;
@@ -99,7 +99,7 @@ static void log_exit(int rc);
 static long long get_timestamp();
 
 
-static bear_env_t env_names =
+static red_env_t env_names =
     { ENV_OUTPUT
     , ENV_PRELOAD
 #ifdef ENV_FLAT
@@ -107,7 +107,7 @@ static bear_env_t env_names =
 #endif
     };
 
-static bear_env_t initial_env =
+static red_env_t initial_env =
     { 0
     , 0
 #ifdef ENV_FLAT
@@ -162,13 +162,13 @@ static void on_load(void) {
     environ = *_NSGetEnviron();
 #endif
     if (!initialized)
-        initialized = bear_capture_env_t(&initial_env);
+        initialized = red_capture_env_t(&initial_env);
     pthread_mutex_unlock(&mutex);
 }
 
 static void on_unload(void) {
     pthread_mutex_lock(&mutex);
-    bear_release_env_t(&initial_env);
+    red_release_env_t(&initial_env);
     initialized = 0;
     pthread_mutex_unlock(&mutex);
 }
@@ -204,12 +204,12 @@ void log_exit(int rc){
   size_t const path_max_length = strlen(out_dir) + 32;
   char filename[path_max_length];
   if (-1 == snprintf(filename, path_max_length, "%s/%d.cmd", out_dir, getpid())) {
-      perror("bear: snprintf");
+      perror("red: snprintf");
       exit(EXIT_FAILURE);
   }
   FILE * fd = fopen(filename, "a+");
   if (0 == fd) {
-      perror("bear: fopen");
+      perror("red: fopen");
       exit(EXIT_FAILURE);
   }
   fprintf(fd, "EXIT%c", RS);
@@ -218,7 +218,7 @@ void log_exit(int rc){
   fprintf(fd, "%d%c", rc, RS);
   fprintf(fd, "%c", GS);
   if (fclose(fd)) {
-      perror("bear: fclose");
+      perror("red: fclose");
       exit(EXIT_FAILURE);
   }
   pthread_mutex_unlock(&mutex);
@@ -228,7 +228,7 @@ void log_exit(int rc){
 static long long get_timestamp(){
     struct timeval tv;
     if (gettimeofday(&tv, NULL)){
-      perror("bear: gettimeofday");
+      perror("red: gettimeofday");
       exit(EXIT_FAILURE);
     }
     long long timestamp = (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000;
@@ -238,7 +238,7 @@ static long long get_timestamp(){
 
 #ifdef HAVE_EXECVE
 int execve(const char *path, char *const argv[], char *const envp[]) {
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     return call_execve(path, argv, envp);
 }
 #endif
@@ -248,28 +248,28 @@ int execve(const char *path, char *const argv[], char *const envp[]) {
 #error can not implement execv without execve
 #endif
 int execv(const char *path, char *const argv[]) {
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     return call_execve(path, argv, environ);
 }
 #endif
 
 #ifdef HAVE_EXECVPE
 int execvpe(const char *file, char *const argv[], char *const envp[]) {
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     return call_execvpe(file, argv, envp);
 }
 #endif
 
 #ifdef HAVE_EXECVP
 int execvp(const char *file, char *const argv[]) {
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     return call_execvp(file, argv);
 }
 #endif
 
 #ifdef HAVE_EXECVP2
 int execvP(const char *file, const char *search_path, char *const argv[]) {
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     return call_execvP(file, search_path, argv);
 }
 #endif
@@ -281,13 +281,13 @@ int execvP(const char *file, const char *search_path, char *const argv[]) {
 int execl(const char *path, const char *arg, ...) {
     va_list args;
     va_start(args, arg);
-    char const **argv = bear_strings_build(arg, &args);
+    char const **argv = red_strings_build(arg, &args);
     va_end(args);
 
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     int const result = call_execve(path, (char *const *)argv, environ);
 
-    bear_strings_release(argv);
+    red_strings_release(argv);
     return result;
 }
 #endif
@@ -299,13 +299,13 @@ int execl(const char *path, const char *arg, ...) {
 int execlp(const char *file, const char *arg, ...) {
     va_list args;
     va_start(args, arg);
-    char const **argv = bear_strings_build(arg, &args);
+    char const **argv = red_strings_build(arg, &args);
     va_end(args);
 
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     int const result = call_execvp(file, (char *const *)argv);
 
-    bear_strings_release(argv);
+    red_strings_release(argv);
     return result;
 }
 #endif
@@ -318,15 +318,15 @@ int execlp(const char *file, const char *arg, ...) {
 int execle(const char *path, const char *arg, ...) {
     va_list args;
     va_start(args, arg);
-    char const **argv = bear_strings_build(arg, &args);
+    char const **argv = red_strings_build(arg, &args);
     char const **envp = va_arg(args, char const **);
     va_end(args);
 
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     int const result =
         call_execve(path, (char *const *)argv, (char *const *)envp);
 
-    bear_strings_release(argv);
+    red_strings_release(argv);
     return result;
 }
 #endif
@@ -336,7 +336,7 @@ int posix_spawn(pid_t *restrict pid, const char *restrict path,
                 const posix_spawn_file_actions_t *file_actions,
                 const posix_spawnattr_t *restrict attrp,
                 char *const argv[restrict], char *const envp[restrict]) {
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     return call_posix_spawn(pid, path, file_actions, attrp, argv, envp);
 }
 #endif
@@ -346,7 +346,7 @@ int posix_spawnp(pid_t *restrict pid, const char *restrict file,
                  const posix_spawn_file_actions_t *file_actions,
                  const posix_spawnattr_t *restrict attrp,
                  char *const argv[restrict], char *const envp[restrict]) {
-    bear_report_call(__func__, (char const *const *)argv, get_timestamp());
+    red_report_call(__func__, (char const *const *)argv, get_timestamp());
     return call_posix_spawnp(pid, file, file_actions, attrp, argv, envp);
 }
 #endif
@@ -361,9 +361,9 @@ static int call_execve(const char *path, char *const argv[],
 
     DLSYM(func, fp, "execve");
 
-    char const **const menvp = bear_update_environment(envp, &initial_env);
+    char const **const menvp = red_update_environment(envp, &initial_env);
     int const result = (*fp)(path, argv, (char *const *)menvp);
-    bear_strings_release(menvp);
+    red_strings_release(menvp);
     return result;
 }
 #endif
@@ -375,9 +375,9 @@ static int call_execvpe(const char *file, char *const argv[],
 
     DLSYM(func, fp, "execvpe");
 
-    char const **const menvp = bear_update_environment(envp, &initial_env);
+    char const **const menvp = red_update_environment(envp, &initial_env);
     int const result = (*fp)(file, argv, (char *const *)menvp);
-    bear_strings_release(menvp);
+    red_strings_release(menvp);
     return result;
 }
 #endif
@@ -389,11 +389,11 @@ static int call_execvp(const char *file, char *const argv[]) {
     DLSYM(func, fp, "execvp");
 
     char **const original = environ;
-    char const **const modified = bear_update_environment(original, &initial_env);
+    char const **const modified = red_update_environment(original, &initial_env);
     environ = (char **)modified;
     int const result = (*fp)(file, argv);
     environ = original;
-    bear_strings_release(modified);
+    red_strings_release(modified);
 
     return result;
 }
@@ -407,11 +407,11 @@ static int call_execvP(const char *file, const char *search_path,
     DLSYM(func, fp, "execvP");
 
     char **const original = environ;
-    char const **const modified = bear_update_environment(original, &initial_env);
+    char const **const modified = red_update_environment(original, &initial_env);
     environ = (char **)modified;
     int const result = (*fp)(file, search_path, argv);
     environ = original;
-    bear_strings_release(modified);
+    red_strings_release(modified);
 
     return result;
 }
@@ -430,10 +430,10 @@ static int call_posix_spawn(pid_t *restrict pid, const char *restrict path,
 
     DLSYM(func, fp, "posix_spawn");
 
-    char const **const menvp = bear_update_environment(envp, &initial_env);
+    char const **const menvp = red_update_environment(envp, &initial_env);
     int const result =
         (*fp)(pid, path, file_actions, attrp, argv, (char *const *restrict)menvp);
-    bear_strings_release(menvp);
+    red_strings_release(menvp);
     return result;
 }
 #endif
@@ -451,17 +451,17 @@ static int call_posix_spawnp(pid_t *restrict pid, const char *restrict file,
 
     DLSYM(func, fp, "posix_spawnp");
 
-    char const **const menvp = bear_update_environment(envp, &initial_env);
+    char const **const menvp = red_update_environment(envp, &initial_env);
     int const result =
         (*fp)(pid, file, file_actions, attrp, argv, (char *const *restrict)menvp);
-    bear_strings_release(menvp);
+    red_strings_release(menvp);
     return result;
 }
 #endif
 
 /* this method is to write log about the process creation. */
 
-static void bear_report_call(char const *fun, char const *const argv[],
+static void red_report_call(char const *fun, char const *const argv[],
     long long timestamp) {
     if (!initialized)
         return;
@@ -469,19 +469,19 @@ static void bear_report_call(char const *fun, char const *const argv[],
     pthread_mutex_lock(&mutex);
     const char *cwd = getcwd(NULL, 0);
     if (0 == cwd) {
-        perror("bear: getcwd");
+        perror("red: getcwd");
         exit(EXIT_FAILURE);
     }
     char const * const out_dir = initial_env[0];
     size_t const path_max_length = strlen(out_dir) + 32;
     char filename[path_max_length];
     if (-1 == snprintf(filename, path_max_length, "%s/%d.cmd", out_dir, getpid())) {
-        perror("bear: snprintf");
+        perror("red: snprintf");
         exit(EXIT_FAILURE);
     }
     FILE * fd = fopen(filename, "a+");
     if (0 == fd) {
-        perror("bear: fopen");
+        perror("red: fopen");
         exit(EXIT_FAILURE);
     }
     fprintf(fd, "EXEC%c", RS);
@@ -490,13 +490,13 @@ static void bear_report_call(char const *fun, char const *const argv[],
     fprintf(fd, "%d%c", getppid(), RS);
     fprintf(fd, "%s%c", fun, RS);
     fprintf(fd, "%s%c", cwd, RS);
-    size_t const argc = bear_strings_length(argv);
+    size_t const argc = red_strings_length(argv);
     for (size_t it = 0; it < argc; ++it) {
         fprintf(fd, "%s%c", argv[it], US);
     }
     fprintf(fd, "%c", GS);
     if (fclose(fd)) {
-        perror("bear: fclose");
+        perror("red: fclose");
         exit(EXIT_FAILURE);
     }
     free((void *)cwd);
@@ -506,7 +506,7 @@ static void bear_report_call(char const *fun, char const *const argv[],
 /* update environment assure that chilren processes will copy the desired
  * behaviour */
 
-static int bear_capture_env_t(bear_env_t *env) {
+static int red_capture_env_t(red_env_t *env) {
     int status = 1;
     for (size_t it = 0; it < ENV_SIZE; ++it) {
         char const * const env_value = getenv(env_names[it]);
@@ -517,21 +517,21 @@ static int bear_capture_env_t(bear_env_t *env) {
     return status;
 }
 
-static void bear_release_env_t(bear_env_t *env) {
+static void red_release_env_t(red_env_t *env) {
     for (size_t it = 0; it < ENV_SIZE; ++it) {
         free((void *)(*env)[it]);
         (*env)[it] = 0;
     }
 }
 
-static char const **bear_update_environment(char *const envp[], bear_env_t *env) {
-    char const **result = bear_strings_copy((char const **)envp);
+static char const **red_update_environment(char *const envp[], red_env_t *env) {
+    char const **result = red_strings_copy((char const **)envp);
     for (size_t it = 0; it < ENV_SIZE && (*env)[it]; ++it)
-        result = bear_update_environ(result, env_names[it], (*env)[it]);
+        result = red_update_environ(result, env_names[it], (*env)[it]);
     return result;
 }
 
-static char const **bear_update_environ(char const *envs[], char const *key, char const * const value) {
+static char const **red_update_environ(char const *envs[], char const *key, char const * const value) {
     // find the key if it's there
     size_t const key_length = strlen(key);
     char const **it = envs;
@@ -545,11 +545,11 @@ static char const **bear_update_environ(char const *envs[], char const *key, cha
     size_t const env_length = key_length + value_length + 2;
     char *env = malloc(env_length);
     if (0 == env) {
-        perror("bear: malloc [in env_update]");
+        perror("red: malloc [in env_update]");
         exit(EXIT_FAILURE);
     }
     if (-1 == snprintf(env, env_length, "%s=%s", key, value)) {
-        perror("bear: snprintf");
+        perror("red: snprintf");
         exit(EXIT_FAILURE);
     }
     // replace or append the environment entry
@@ -558,31 +558,31 @@ static char const **bear_update_environ(char const *envs[], char const *key, cha
         *it = env;
 	return envs;
     }
-    return bear_strings_append(envs, env);
+    return red_strings_append(envs, env);
 }
 
 /* util methods to deal with string arrays. environment and process arguments
  * are both represented as string arrays. */
 
-static char const **bear_strings_build(char const *const arg, va_list *args) {
+static char const **red_strings_build(char const *const arg, va_list *args) {
     char const **result = 0;
     size_t size = 0;
     for (char const *it = arg; it; it = va_arg(*args, char const *)) {
         result = realloc(result, (size + 1) * sizeof(char const *));
         if (0 == result) {
-            perror("bear: realloc");
+            perror("red: realloc");
             exit(EXIT_FAILURE);
         }
         char const *copy = strdup(it);
         if (0 == copy) {
-            perror("bear: strdup");
+            perror("red: strdup");
             exit(EXIT_FAILURE);
         }
         result[size++] = copy;
     }
     result = realloc(result, (size + 1) * sizeof(char const *));
     if (0 == result) {
-        perror("bear: realloc");
+        perror("red: realloc");
         exit(EXIT_FAILURE);
     }
     result[size++] = 0;
@@ -590,12 +590,12 @@ static char const **bear_strings_build(char const *const arg, va_list *args) {
     return result;
 }
 
-static char const **bear_strings_copy(char const **const in) {
-    size_t const size = bear_strings_length(in);
+static char const **red_strings_copy(char const **const in) {
+    size_t const size = red_strings_length(in);
 
     char const **const result = malloc((size + 1) * sizeof(char const *));
     if (0 == result) {
-        perror("bear: malloc");
+        perror("red: malloc");
         exit(EXIT_FAILURE);
     }
 
@@ -604,7 +604,7 @@ static char const **bear_strings_copy(char const **const in) {
          ++in_it, ++out_it) {
         *out_it = strdup(*in_it);
         if (0 == *out_it) {
-            perror("bear: strdup");
+            perror("red: strdup");
             exit(EXIT_FAILURE);
         }
     }
@@ -612,12 +612,12 @@ static char const **bear_strings_copy(char const **const in) {
     return result;
 }
 
-static char const **bear_strings_append(char const **const in,
+static char const **red_strings_append(char const **const in,
                                         char const *const e) {
-    size_t size = bear_strings_length(in);
+    size_t size = red_strings_length(in);
     char const **result = realloc(in, (size + 2) * sizeof(char const *));
     if (0 == result) {
-        perror("bear: realloc");
+        perror("red: realloc");
         exit(EXIT_FAILURE);
     }
     result[size++] = e;
@@ -625,14 +625,14 @@ static char const **bear_strings_append(char const **const in,
     return result;
 }
 
-static size_t bear_strings_length(char const *const *const in) {
+static size_t red_strings_length(char const *const *const in) {
     size_t result = 0;
     for (char const *const *it = in; (it) && (*it); ++it)
         ++result;
     return result;
 }
 
-static void bear_strings_release(char const **in) {
+static void red_strings_release(char const **in) {
     for (char const *const *it = in; (it) && (*it); ++it) {
         free((void *)*it);
     }
