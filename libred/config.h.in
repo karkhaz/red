@@ -19,4 +19,30 @@
 #cmakedefine HAVE_POSIX_SPAWNP
 #cmakedefine HAVE_NSGETENVIRON
 
+#cmakedefine RED_AR @RED_AR@
+#cmakedefine RED_AS @RED_AS@
+#cmakedefine RED_ADDR2LINE @RED_ADDR2LINE@
+#cmakedefine RED_CPPFILT @RED_CPPFILT@
+#cmakedefine RED_CC @RED_CC@
+#cmakedefine RED_CLANG @RED_CLANG@
+#cmakedefine RED_CLANGPP @RED_CLANGPP@
+#cmakedefine RED_CPP @RED_CPP@
+#cmakedefine RED_DWP @RED_DWP@
+#cmakedefine RED_ELFEDIT @RED_ELFEDIT@
+#cmakedefine RED_GCOV @RED_GCOV@
+#cmakedefine RED_GPP @RED_GPP@
+#cmakedefine RED_GCC @RED_GCC@
+#cmakedefine RED_GDB @RED_GDB@
+#cmakedefine RED_GPROF @RED_GPROF@
+#cmakedefine RED_LD @RED_LD@
+#cmakedefine RED_NM @RED_NM@
+#cmakedefine RED_OBJCOPY @RED_OBJCOPY@
+#cmakedefine RED_OBJDUMP @RED_OBJDUMP@
+#cmakedefine RED_RANLIB @RED_RANLIB@
+#cmakedefine RED_READELF @RED_READELF@
+#cmakedefine RED_SCAN_BUILD @RED_SCAN_BUILD@
+#cmakedefine RED_SCAN_VIEW @RED_SCAN_VIEW@
+#cmakedefine RED_STRINGS @RED_STRINGS@
+#cmakedefine RED_STRIP @RED_STRIP@
+
 #cmakedefine APPLE
