@@ -19,4 +19,6 @@
 #cmakedefine HAVE_POSIX_SPAWNP
 #cmakedefine HAVE_NSGETENVIRON
 
+#cmakedefine RED_ENSURE_PATH @RED_ENSURE_PATH@
+
 #cmakedefine APPLE
