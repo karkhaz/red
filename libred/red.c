@@ -58,6 +58,14 @@ static char const *prefixes[] = {
 
 static const char *transform_path(const char *original);
 
+static char const *const red_known_good_path =
+#ifdef RED_ENSURE_PATH
+  "PATH=" xstr(RED_ENSURE_PATH) ":/usr/local/sbin:/usr/local/bin:"
+  "/usr/sbin:/usr/bin:/sbin:/bin";
+#else
+  "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+#endif
+
 #if defined HAVE_POSIX_SPAWN || defined HAVE_POSIX_SPAWNP
 #include <spawn.h>
 #endif
@@ -111,6 +119,10 @@ static int const US = 0x1f;
 
 static void log_exit(int rc);
 static long long get_timestamp();
+
+static void red_ensure_path(char const **const env);
+static void red_log_error(char const *category, char const *info);
+
 
 static red_env_t env_names =
     { ENV_OUTPUT
@@ -378,6 +390,8 @@ static int call_execve(const char *path, char *const argv[],
     *argv[0] = *transform_path(argv[0]);
 
     char const **const menvp = red_update_environment(envp, &initial_env);
+    red_ensure_path(menvp);
+
     int const result = (*fp)(path, argv, (char *const *)menvp);
     red_strings_release(menvp);
     return result;
@@ -395,6 +409,8 @@ static int call_execvpe(const char *file, char *const argv[],
     *argv[0] = *transform_path(argv[0]);
 
     char const **const menvp = red_update_environment(envp, &initial_env);
+    red_ensure_path(menvp);
+
     int const result = (*fp)(file, argv, (char *const *)menvp);
     red_strings_release(menvp);
     return result;
@@ -456,6 +472,8 @@ static int call_posix_spawn(pid_t *restrict pid, const char *restrict path,
     DLSYM(func, fp, "posix_spawn");
 
     char const **const menvp = red_update_environment(envp, &initial_env);
+    red_ensure_path(menvp);
+
     int const result =
         (*fp)(pid, path, file_actions, attrp, argv, (char *const *restrict)menvp);
     red_strings_release(menvp);
@@ -477,13 +495,14 @@ static int call_posix_spawnp(pid_t *restrict pid, const char *restrict file,
     DLSYM(func, fp, "posix_spawnp");
 
     char const **const menvp = red_update_environment(envp, &initial_env);
+    red_ensure_path(menvp);
+
     int const result =
         (*fp)(pid, file, file_actions, attrp, argv, (char *const *restrict)menvp);
     red_strings_release(menvp);
     return result;
 }
 #endif
-
 
 #define redirect_tool(tool, replacement)                                \
   do {                                                                  \
@@ -603,6 +622,70 @@ static const char *transform_path(const char *original) {
 #endif
 
   return original;
+}
+
+
+static void red_log_error(char const *category, char const *info) {
+    char error_template[] = "/tmp/red-error-XXXXXX";
+    int fd = mkstemp(error_template);
+    if (fd == -1) {
+      perror("red: mkstemp");
+      exit(1);
+    }
+    dprintf(fd, "%s\n%ld\n%s\n", category, (long)getpid(), info);
+    if (close(fd) == -1) {
+      perror("red: close");
+      exit(1);
+    }
+}
+
+
+/* If ENSURE_PATH is defined, this function checks to see if the first
+ * directory in $PATH is equal to ENSURE_PATH.  If it is, this function
+ * does not change envp. Otherwise, a warning is logged to a file.
+ * Additionally,
+ * - If ENSURE_PATH is not the first path in $PATH, this function adds it.
+ * - If $PATH is empty, this function fills out $PATH with a known-good
+ *   value.
+ * - If $PATH is not in envp, this function can do nothing more than log
+ *   a warning, as envp is a const *.
+ */
+static void red_ensure_path(char const **const envp) {
+#ifdef RED_ENSURE_PATH
+  for (char const **ptr = envp; ptr != NULL; ++ptr) {
+    if (strncmp(*ptr, "PATH", 4)) {
+      continue;
+    }
+    char *colon = strchr(*ptr, ':');
+    if (colon == NULL){
+      /* PATH is empty */
+      *ptr = red_known_good_path;
+      red_log_error("empty path", "");
+      return;
+    }
+
+    char const *ensure_path = *ptr + /* PATH= */ 5;
+    if (!strncmp(ensure_path, xstr(RED_ENSURE_PATH),
+          colon - ensure_path)) {
+      /* ENSURE_PATH is first path in $PATH. This is the okay case. */
+      return;
+    }
+
+    /* Some other directory is the first path in $PATH. Add ENSURE_PATH
+     * plus a colon just after the equals sign. */
+    red_log_error("malformed path", *ptr);
+    int len = strlen(xstr(RED_ENSURE_PATH)) + strlen(ensure_path)
+              /* PATH= */ + 5
+              /* colon between first path and rest */ + 1
+              /* final null byte */ + 1;
+    char *tmp = (char *)malloc(len * sizeof(char));
+    snprintf(tmp, len, "PATH=%s:%s", xstr(RED_ENSURE_PATH), ensure_path);
+    *ptr = tmp;
+    return;
+  }
+
+  red_log_error("PATH not in env!", "");
+#endif /* ifdef RED_ENSURE_PATH */
 }
 
 

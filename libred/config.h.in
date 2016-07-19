@@ -45,4 +45,6 @@
 #cmakedefine RED_STRINGS @RED_STRINGS@
 #cmakedefine RED_STRIP @RED_STRIP@
 
+#cmakedefine RED_ENSURE_PATH @RED_ENSURE_PATH@
+
 #cmakedefine APPLE
