@@ -44,6 +44,20 @@
 #include <linux/unistd.h>
 #include <sys/time.h>
 
+#define str(s) #s
+#define xstr(s) str(s)
+
+#define array_size(a) (sizeof(a) / sizeof(a[0]))
+
+/* Redirection of tool invocations that match absolute prefixes */
+static char const *prefixes[] = {
+  "/usr/bin",
+  "/bin",
+  "/usr/sbin"
+};
+
+static const char *transform_path(const char *original);
+
 #if defined HAVE_POSIX_SPAWN || defined HAVE_POSIX_SPAWNP
 #include <spawn.h>
 #endif
@@ -97,7 +111,6 @@ static int const US = 0x1f;
 
 static void log_exit(int rc);
 static long long get_timestamp();
-
 
 static red_env_t env_names =
     { ENV_OUTPUT
@@ -361,6 +374,9 @@ static int call_execve(const char *path, char *const argv[],
 
     DLSYM(func, fp, "execve");
 
+    path = transform_path(path);
+    *argv[0] = *transform_path(argv[0]);
+
     char const **const menvp = red_update_environment(envp, &initial_env);
     int const result = (*fp)(path, argv, (char *const *)menvp);
     red_strings_release(menvp);
@@ -375,6 +391,9 @@ static int call_execvpe(const char *file, char *const argv[],
 
     DLSYM(func, fp, "execvpe");
 
+    file = transform_path(file);
+    *argv[0] = *transform_path(argv[0]);
+
     char const **const menvp = red_update_environment(envp, &initial_env);
     int const result = (*fp)(file, argv, (char *const *)menvp);
     red_strings_release(menvp);
@@ -387,6 +406,9 @@ static int call_execvp(const char *file, char *const argv[]) {
     typedef int (*func)(const char *file, char *const argv[]);
 
     DLSYM(func, fp, "execvp");
+
+    file = transform_path(file);
+    *argv[0] = *transform_path(argv[0]);
 
     char **const original = environ;
     char const **const modified = red_update_environment(original, &initial_env);
@@ -405,6 +427,9 @@ static int call_execvP(const char *file, const char *search_path,
     typedef int (*func)(const char *, const char *, char *const *);
 
     DLSYM(func, fp, "execvP");
+
+    file = transform_path(file);
+    *argv[0] = transform_path(*argv[0]);
 
     char **const original = environ;
     char const **const modified = red_update_environment(original, &initial_env);
@@ -458,6 +483,128 @@ static int call_posix_spawnp(pid_t *restrict pid, const char *restrict file,
     return result;
 }
 #endif
+
+
+#define redirect_tool(tool, replacement)                                \
+  do {                                                                  \
+    for (int i = 0; i < array_size(prefixes); ++i) {                    \
+      /* First, check if the first chars of the invoked tool matches    \
+       * an absolute path prefix. */                                    \
+      if (strncmp(original, prefixes[i], strlen(prefixes[i]))) {        \
+        continue;                                                       \
+      }                                                                 \
+                                                                        \
+      /* Now check if the _next_ chars of the invoked tool match the    \
+       * tool that we're looking for. Use strcmp rather than strncmp    \
+       * since this should also take us to the end of the string. The   \
+       * '+ 1' is so that we skip the slash between the prefix and the  \
+       * binary name. */                                                \
+      if (strcmp(original + strlen(prefixes[i]) + 1, tool)) {           \
+        continue;                                                       \
+      }                                                                 \
+                                                                        \
+      /* `original` is equal to `prefixes[i] + / + tool`. Write a       \
+       * warning and redirect the invocation. error_template gets       \
+       * modified in-place, so we need to allocate a new one on each    \
+       * invocation.                                                    \
+       */                                                               \
+      char error_template[] = "/tmp/tuscan-native-XXXXXX";              \
+      int fd = mkstemp(error_template);                                 \
+      if (fd == -1) {                                                   \
+        perror("tuscan: mkstemp");                                      \
+        exit(1);                                                        \
+      }                                                                 \
+      dprintf(fd, "hardcoded path\n%ld\n%s\n",                          \
+          (long)getpid(), original);                                    \
+      if (close(fd) == -1) {                                            \
+        perror("tuscan: close");                                        \
+        exit(1);                                                        \
+      }                                                                 \
+      return xstr(replacement);                                         \
+    }                                                                   \
+  } while (0);
+
+
+static const char *transform_path(const char *original) {
+#ifdef RED_AR
+  redirect_tool("ar", RED_AR)
+#endif
+#ifdef RED_AS
+  redirect_tool("as", RED_AS)
+#endif
+#ifdef RED_ADDR2LINE
+  redirect_tool("addr2line", RED_ADDR2LINE)
+#endif
+#ifdef RED_CPPFILT
+  redirect_tool("c++filt", RED_CPPFILT)
+#endif
+#ifdef RED_CC
+  redirect_tool("cc", RED_CC)
+#endif
+#ifdef RED_CLANG
+  redirect_tool("clang", RED_CLANG)
+#endif
+#ifdef RED_CLANGPP
+  redirect_tool("clang++", RED_CLANGPP)
+#endif
+#ifdef RED_CPP
+  redirect_tool("cpp", RED_CPP)
+#endif
+#ifdef RED_DWP
+  redirect_tool("dwp", RED_DWP)
+#endif
+#ifdef RED_ELFEDIT
+  redirect_tool("elfedit", RED_ELFEDIT)
+#endif
+#ifdef RED_GCOV
+  redirect_tool("gcov", RED_GCOV)
+#endif
+#ifdef RED_GPP
+  redirect_tool("g++", RED_GPP)
+#endif
+#ifdef RED_GCC
+  redirect_tool("gcc", RED_GCC)
+#endif
+#ifdef RED_GDB
+  redirect_tool("gdb", RED_GDB)
+#endif
+#ifdef RED_GPROF
+  redirect_tool("gprof", RED_GPROF)
+#endif
+#ifdef RED_LD
+  redirect_tool("ld", RED_LD)
+#endif
+#ifdef RED_NM
+  redirect_tool("nm", RED_NM)
+#endif
+#ifdef RED_OBJCOPY
+  redirect_tool("objcopy", RED_OBJCOPY)
+#endif
+#ifdef RED_OBJDUMP
+  redirect_tool("objdump", RED_OBJDUMP)
+#endif
+#ifdef RED_RANLIB
+  redirect_tool("ranlib", RED_RANLIB)
+#endif
+#ifdef RED_READELF
+  redirect_tool("readelf", RED_READELF)
+#endif
+#ifdef RED_SCAN_BUILD
+  redirect_tool("scan-build", RED_SCAN_BUILD)
+#endif
+#ifdef RED_SCAN_VIEW
+  redirect_tool("scan-view", RED_SCAN_VIEW)
+#endif
+#ifdef RED_STRINGS
+  redirect_tool("strings", RED_STRINGS)
+#endif
+#ifdef RED_STRIP
+  redirect_tool("strip", RED_STRIP)
+#endif
+
+  return original;
+}
+
 
 /* this method is to write log about the process creation. */
 
