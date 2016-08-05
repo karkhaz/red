@@ -56,7 +56,7 @@ static char const *prefixes[] = {
   "/usr/sbin"
 };
 
-static const char *transform_path(const char *original);
+static char const *transform_invocation(char const *original);
 
 static char const *const red_known_good_path =
 #ifdef RED_ENSURE_PATH
@@ -386,11 +386,11 @@ static int call_execve(const char *path, char *const argv[],
 
     DLSYM(func, fp, "execve");
 
-    path = transform_path(path);
-    *argv[0] = *transform_path(argv[0]);
-
     char const **const menvp = red_update_environment(envp, &initial_env);
     red_ensure_path(menvp);
+
+    path = transform_invocation(path);
+    *argv[0] = *transform_invocation(argv[0]);
 
     int const result = (*fp)(path, argv, (char *const *)menvp);
     red_strings_release(menvp);
@@ -405,11 +405,11 @@ static int call_execvpe(const char *file, char *const argv[],
 
     DLSYM(func, fp, "execvpe");
 
-    file = transform_path(file);
-    *argv[0] = *transform_path(argv[0]);
-
     char const **const menvp = red_update_environment(envp, &initial_env);
     red_ensure_path(menvp);
+
+    file = transform_invocation(file);
+    *argv[0] = *transform_invocation(argv[0]);
 
     int const result = (*fp)(file, argv, (char *const *)menvp);
     red_strings_release(menvp);
@@ -423,12 +423,14 @@ static int call_execvp(const char *file, char *const argv[]) {
 
     DLSYM(func, fp, "execvp");
 
-    file = transform_path(file);
-    *argv[0] = *transform_path(argv[0]);
-
     char **const original = environ;
     char const **const modified = red_update_environment(original, &initial_env);
+    red_ensure_path(modified);
     environ = (char **)modified;
+
+    file = transform_invocation(file);
+    *argv[0] = *transform_invocation(argv[0]);
+
     int const result = (*fp)(file, argv);
     environ = original;
     red_strings_release(modified);
@@ -444,11 +446,14 @@ static int call_execvP(const char *file, const char *search_path,
 
     DLSYM(func, fp, "execvP");
 
-    file = transform_path(file);
-    *argv[0] = transform_path(*argv[0]);
-
     char **const original = environ;
     char const **const modified = red_update_environment(original, &initial_env);
+
+    red_ensure_path(modified);
+
+    file = transform_invocation(file);
+    *argv[0] = *transform_invocation(argv[0]);
+
     environ = (char **)modified;
     int const result = (*fp)(file, search_path, argv);
     environ = original;
@@ -474,6 +479,9 @@ static int call_posix_spawn(pid_t *restrict pid, const char *restrict path,
     char const **const menvp = red_update_environment(envp, &initial_env);
     red_ensure_path(menvp);
 
+    path = transform_invocation(path);
+    *argv[0] = *transform_invocation(argv[0]);
+
     int const result =
         (*fp)(pid, path, file_actions, attrp, argv, (char *const *restrict)menvp);
     red_strings_release(menvp);
@@ -496,6 +504,9 @@ static int call_posix_spawnp(pid_t *restrict pid, const char *restrict file,
 
     char const **const menvp = red_update_environment(envp, &initial_env);
     red_ensure_path(menvp);
+
+    file = transform_invocation(file);
+    *argv[0] = *transform_invocation(argv[0]);
 
     int const result =
         (*fp)(pid, file, file_actions, attrp, argv, (char *const *restrict)menvp);
@@ -523,28 +534,17 @@ static int call_posix_spawnp(pid_t *restrict pid, const char *restrict file,
       }                                                                 \
                                                                         \
       /* `original` is equal to `prefixes[i] + / + tool`. Write a       \
-       * warning and redirect the invocation. error_template gets       \
-       * modified in-place, so we need to allocate a new one on each    \
-       * invocation.                                                    \
+       * warning and redirect the invocation.                           \
        */                                                               \
-      char error_template[] = "/tmp/tuscan-native-XXXXXX";              \
-      int fd = mkstemp(error_template);                                 \
-      if (fd == -1) {                                                   \
-        perror("tuscan: mkstemp");                                      \
-        exit(1);                                                        \
-      }                                                                 \
-      dprintf(fd, "hardcoded path\n%ld\n%s\n",                          \
-          (long)getpid(), original);                                    \
-      if (close(fd) == -1) {                                            \
-        perror("tuscan: close");                                        \
-        exit(1);                                                        \
-      }                                                                 \
+      char buf[128];                                                    \
+      snprintf(buf, 128, "%s\n%s", original, xstr(replacement));        \
+      red_log_error("hardcoded invocation", buf);                       \
       return xstr(replacement);                                         \
     }                                                                   \
   } while (0);
 
 
-static const char *transform_path(const char *original) {
+static char const *transform_invocation(char const *original) {
 #ifdef RED_AR
   redirect_tool("ar", RED_AR)
 #endif
