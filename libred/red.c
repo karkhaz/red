@@ -614,6 +614,9 @@ static char const *transform_invocation(char const *original) {
 #ifdef RED_SCAN_VIEW
   redirect_tool("scan-view", RED_SCAN_VIEW)
 #endif
+#ifdef RED_SIZE
+  redirect_tool("size", RED_SIZE)
+#endif
 #ifdef RED_STRINGS
   redirect_tool("strings", RED_STRINGS)
 #endif

@@ -42,6 +42,7 @@
 #cmakedefine RED_READELF @RED_READELF@
 #cmakedefine RED_SCAN_BUILD @RED_SCAN_BUILD@
 #cmakedefine RED_SCAN_VIEW @RED_SCAN_VIEW@
+#cmakedefine RED_SIZE @RED_SIZE@
 #cmakedefine RED_STRINGS @RED_STRINGS@
 #cmakedefine RED_STRIP @RED_STRIP@
 
