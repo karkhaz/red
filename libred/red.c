@@ -554,6 +554,9 @@ static char const *transform_invocation(char const *original) {
 #ifdef RED_ADDR2LINE
   redirect_tool("addr2line", RED_ADDR2LINE)
 #endif
+#ifdef RED_CATCHSEGV
+  redirect_tool("catchsegv", RED_CATCHSEGV)
+#endif
 #ifdef RED_CPPFILT
   redirect_tool("c++filt", RED_CPPFILT)
 #endif
@@ -575,6 +578,15 @@ static char const *transform_invocation(char const *original) {
 #ifdef RED_ELFEDIT
   redirect_tool("elfedit", RED_ELFEDIT)
 #endif
+#ifdef RED_GENCAT
+  redirect_tool("gencat", RED_GENCAT)
+#endif
+#ifdef RED_GETCONF
+  redirect_tool("getconf", RED_GETCONF)
+#endif
+#ifdef RED_GETENT
+  redirect_tool("getent", RED_GETENT)
+#endif
 #ifdef RED_GCOV
   redirect_tool("gcov", RED_GCOV)
 #endif
@@ -589,6 +601,9 @@ static char const *transform_invocation(char const *original) {
 #endif
 #ifdef RED_GPROF
   redirect_tool("gprof", RED_GPROF)
+#endif
+#ifdef RED_ICONV
+  redirect_tool("iconv", RED_ICONV)
 #endif
 #ifdef RED_LD
   redirect_tool("ld", RED_LD)

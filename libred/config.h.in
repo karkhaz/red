@@ -22,6 +22,7 @@
 #cmakedefine RED_AR @RED_AR@
 #cmakedefine RED_AS @RED_AS@
 #cmakedefine RED_ADDR2LINE @RED_ADDR2LINE@
+#cmakedefine RED_CATCHSEGV @RED_CATCHSEGV@
 #cmakedefine RED_CPPFILT @RED_CPPFILT@
 #cmakedefine RED_CC @RED_CC@
 #cmakedefine RED_CLANG @RED_CLANG@
@@ -30,10 +31,14 @@
 #cmakedefine RED_DWP @RED_DWP@
 #cmakedefine RED_ELFEDIT @RED_ELFEDIT@
 #cmakedefine RED_GCOV @RED_GCOV@
+#cmakedefine RED_GENCAT @RED_GENCAT@
+#cmakedefine RED_GETCONF @RED_GETCONF@
+#cmakedefine RED_GETENT @RED_GETENT@
 #cmakedefine RED_GPP @RED_GPP@
 #cmakedefine RED_GCC @RED_GCC@
 #cmakedefine RED_GDB @RED_GDB@
 #cmakedefine RED_GPROF @RED_GPROF@
+#cmakedefine RED_ICONV @RED_ICONV@
 #cmakedefine RED_LD @RED_LD@
 #cmakedefine RED_NM @RED_NM@
 #cmakedefine RED_OBJCOPY @RED_OBJCOPY@
