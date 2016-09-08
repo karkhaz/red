@@ -40,6 +40,7 @@
 #cmakedefine RED_GPROF @RED_GPROF@
 #cmakedefine RED_ICONV @RED_ICONV@
 #cmakedefine RED_LD @RED_LD@
+#cmakedefine RED_LDD @RED_LDD@
 #cmakedefine RED_NM @RED_NM@
 #cmakedefine RED_OBJCOPY @RED_OBJCOPY@
 #cmakedefine RED_OBJDUMP @RED_OBJDUMP@

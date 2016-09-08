@@ -605,6 +605,9 @@ static char const *transform_invocation(char const *original) {
 #ifdef RED_ICONV
   redirect_tool("iconv", RED_ICONV)
 #endif
+#ifdef RED_LDD
+  redirect_tool("ldd", RED_LDD)
+#endif
 #ifdef RED_LD
   redirect_tool("ld", RED_LD)
 #endif
