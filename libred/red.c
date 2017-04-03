@@ -541,6 +541,14 @@ static int call_posix_spawnp(pid_t *restrict pid, const char *restrict file,
       red_log_error("hardcoded invocation", buf);                       \
       return xstr(replacement);                                         \
     }                                                                   \
+    /* The binary may also have been called without an absolute path.   \
+     * check for that too. */                                           \
+    if (! strncmp(original, tool, strlen(tool))) {                      \
+      char buf[128];                                                    \
+      snprintf(buf, 128, "%s\n%s", original, xstr(replacement));        \
+      red_log_error("hardcoded invocation", buf);                       \
+      return xstr(replacement);                                         \
+    }                                                                   \
   } while (0);
 
 
