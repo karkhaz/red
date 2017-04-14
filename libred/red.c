@@ -51,12 +51,14 @@
 
 /* Redirection of tool invocations that match absolute prefixes */
 static char const *prefixes[] = {
+  "",
   "/usr/bin",
   "/bin",
   "/usr/sbin"
 };
 
-static char const *transform_invocation(char const *original);
+static char const *transform_invocation(char const *original,
+                                        char *const argv[]);
 
 static char const *const red_known_good_path =
 #ifdef RED_ENSURE_PATH
@@ -389,8 +391,8 @@ static int call_execve(const char *path, char *const argv[],
     char const **const menvp = red_update_environment(envp, &initial_env);
     red_ensure_path(menvp);
 
-    path = transform_invocation(path);
-    *argv[0] = *transform_invocation(argv[0]);
+    path = transform_invocation(path, argv);
+    *argv[0] = *transform_invocation(argv[0], argv);
 
     int const result = (*fp)(path, argv, (char *const *)menvp);
     red_strings_release(menvp);
@@ -408,8 +410,8 @@ static int call_execvpe(const char *file, char *const argv[],
     char const **const menvp = red_update_environment(envp, &initial_env);
     red_ensure_path(menvp);
 
-    file = transform_invocation(file);
-    *argv[0] = *transform_invocation(argv[0]);
+    file = transform_invocation(file, argv);
+    *argv[0] = *transform_invocation(argv[0], argv);
 
     int const result = (*fp)(file, argv, (char *const *)menvp);
     red_strings_release(menvp);
@@ -428,8 +430,8 @@ static int call_execvp(const char *file, char *const argv[]) {
     red_ensure_path(modified);
     environ = (char **)modified;
 
-    file = transform_invocation(file);
-    *argv[0] = *transform_invocation(argv[0]);
+    file = transform_invocation(file, argv);
+    *argv[0] = *transform_invocation(argv[0], argv);
 
     int const result = (*fp)(file, argv);
     environ = original;
@@ -451,8 +453,8 @@ static int call_execvP(const char *file, const char *search_path,
 
     red_ensure_path(modified);
 
-    file = transform_invocation(file);
-    *argv[0] = *transform_invocation(argv[0]);
+    file = transform_invocation(file, argv);
+    *argv[0] = *transform_invocation(argv[0], argv);
 
     environ = (char **)modified;
     int const result = (*fp)(file, search_path, argv);
@@ -479,8 +481,8 @@ static int call_posix_spawn(pid_t *restrict pid, const char *restrict path,
     char const **const menvp = red_update_environment(envp, &initial_env);
     red_ensure_path(menvp);
 
-    path = transform_invocation(path);
-    *argv[0] = *transform_invocation(argv[0]);
+    path = transform_invocation(path, argv);
+    *argv[0] = *transform_invocation(argv[0], argv);
 
     int const result =
         (*fp)(pid, path, file_actions, attrp, argv, (char *const *restrict)menvp);
@@ -505,8 +507,8 @@ static int call_posix_spawnp(pid_t *restrict pid, const char *restrict file,
     char const **const menvp = red_update_environment(envp, &initial_env);
     red_ensure_path(menvp);
 
-    file = transform_invocation(file);
-    *argv[0] = *transform_invocation(argv[0]);
+    file = transform_invocation(file, argv);
+    *argv[0] = *transform_invocation(argv[0], argv);
 
     int const result =
         (*fp)(pid, file, file_actions, attrp, argv, (char *const *restrict)menvp);
@@ -523,36 +525,48 @@ static int call_posix_spawnp(pid_t *restrict pid, const char *restrict file,
       if (strncmp(original, prefixes[i], strlen(prefixes[i]))) {        \
         continue;                                                       \
       }                                                                 \
-                                                                        \
       /* Now check if the _next_ chars of the invoked tool match the    \
        * tool that we're looking for. Use strcmp rather than strncmp    \
        * since this should also take us to the end of the string. The   \
        * '+ 1' is so that we skip the slash between the prefix and the  \
-       * binary name. */                                                \
-      if (strcmp(original + strlen(prefixes[i]) + 1, tool)) {           \
+       * binary name, if there's a slash in the prefix. */              \
+      unsigned skip = strlen(prefixes[i]);                              \
+      if (skip)                                                         \
+        skip += 1;                                                      \
+                                                                        \
+      if (strcmp(original + skip, tool)) {                              \
         continue;                                                       \
       }                                                                 \
                                                                         \
       /* `original` is equal to `prefixes[i] + / + tool`. Write a       \
-       * warning and redirect the invocation.                           \
-       */                                                               \
+       * warning and redirect the invocation. */                        \
       char buf[128];                                                    \
       snprintf(buf, 128, "%s\n%s", original, xstr(replacement));        \
-      red_log_error("hardcoded invocation", buf);                       \
-      return xstr(replacement);                                         \
-    }                                                                   \
-    /* The binary may also have been called without an absolute path.   \
-     * check for that too. */                                           \
-    if (! strncmp(original, tool, strlen(tool))) {                      \
-      char buf[128];                                                    \
-      snprintf(buf, 128, "%s\n%s", original, xstr(replacement));        \
-      red_log_error("hardcoded invocation", buf);                       \
+      /* If the prefix we're comparing to is "", then the tool was      \
+       * invoked as a relative path. Log this in a distinct way. */     \
+      if (strncmp("", prefixes[i], 1))                                  \
+        red_log_error("hardcoded invocation: abs", buf);                \
+      else                                                              \
+        red_log_error("hardcoded invocation: rel", buf);                \
       return xstr(replacement);                                         \
     }                                                                   \
   } while (0);
 
 
-static char const *transform_invocation(char const *original) {
+static char const *transform_invocation(char const *restrict original,
+                                        char *const argv[]) {
+  /* Check that the invocation doesn't involve the command line flag
+   * "-x ada". Clang passes this off straight to gcc, so we should NOT
+   * redirect invocations of gcc to clang in this case---otherwise we
+   * fork bomb. Assuming that argv is an array terminated by a null
+   * pointer, as specified for argv in execv(3).
+   */
+  while (*argv && *(argv + 1)) {
+    if (!strcmp(*argv, "-x") && !strcmp(*(argv + 1), "ada"))
+      return original;
+    ++argv;
+  }
+
 #ifdef RED_AR
   redirect_tool("ar", RED_AR)
 #endif
@@ -704,9 +718,9 @@ static void red_ensure_path(char const **const envp) {
      * plus a colon just after the equals sign. */
     red_log_error("malformed path", *ptr);
     int len = strlen(xstr(RED_ENSURE_PATH)) + strlen(ensure_path)
-              /* PATH= */ + 5
-              /* colon between first path and rest */ + 1
-              /* final null byte */ + 1;
+                                /* PATH= */ + 5
+    /* colon between first path and rest */ + 1
+                      /* final null byte */ + 1;
     char *tmp = (char *)malloc(len * sizeof(char));
     snprintf(tmp, len, "PATH=%s:%s", xstr(RED_ENSURE_PATH), ensure_path);
     *ptr = tmp;
